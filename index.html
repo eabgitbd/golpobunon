@@ -1,0 +1,1988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>গল্পবুনন - AI Library & Reader</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Google Fonts (Bengali & English) -->
+    <link href="https://fonts.googleapis.com/css2?family=Tiro+Bangla:ital@0;1&family=Noto+Serif+Bengali:wght@400;600&family=Hind+Siliguri:wght@400;600&family=Merriweather:ital,wght@0,300;0,400;0,700;1,400&family=Lora:ital,wght@0,400;0,600;1,400&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+    
+    <!-- html2pdf for PDF export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- JSZip for EPUB export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        'tiro': ['"Tiro Bangla"', 'serif'],
+                        'noto-bn': ['"Noto Serif Bengali"', 'serif'],
+                        'hind': ['"Hind Siliguri"', 'sans-serif'],
+                        'merriweather': ['"Merriweather"', 'serif'],
+                        'lora': ['"Lora"', 'serif'],
+                        'playfair': ['"Playfair Display"', 'serif'],
+                    },
+                    colors: {
+                        'theme-day-bg': '#fdf6e3', 'theme-day-text': '#2c2c2c',
+                        'theme-night-bg': '#0f172a', 'theme-night-text': '#e2e8f0',
+                        'theme-sepia-bg': '#f4ecd8', 'theme-sepia-text': '#5b4636',
+                        'theme-eyecare-bg': '#e8f5e9', 'theme-eyecare-text': '#1b5e20',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Smooth transitions */
+        body, #view-reader { transition: background-color 0.4s ease, color 0.4s ease; }
+        .transition-transform { transition: transform 0.3s ease; }
+        
+        /* Reader Themes */
+        .theme-day { background-color: #fdf6e3 !important; color: #2c2c2c !important; }
+        .theme-noon { background-color: #ffffff !important; color: #111111 !important; }
+        .theme-dim { background-color: #2c2c2c !important; color: #cccccc !important; }
+        .theme-night { background-color: #0f172a !important; color: #94a3b8 !important; }
+        .theme-eyecare { background-color: #e8f5e9 !important; color: #1b5e20 !important; }
+        .theme-sepia { background-color: #f4ecd8 !important; color: #5b4636 !important; }
+        .theme-custom { background-color: var(--custom-bg, #ffffff); color: var(--custom-text, #000000); }
+
+        /* Cover Art Hover */
+        .book-cover { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); transition: all 0.3s ease; }
+        .book-card:hover .book-cover { transform: translateY(-5px); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.15); }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(156, 163, 175, 0.5); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(107, 114, 128, 0.8); }
+
+        /* Loading Spinner */
+        .spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1); width: 40px; height: 40px; border-radius: 50%;
+            border-left-color: #4f46e5; animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        #reader-content { white-space: pre-wrap; padding-bottom: 80px; transition: font-size 0.2s, line-height 0.2s; }
+        
+        /* Toast Notifications */
+        #toast-container { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 100; display: flex; flex-direction: column; gap: 10px; align-items: center;}
+        .toast { padding: 12px 24px; border-radius: 8px; color: white; font-weight: 500; shadow: 0 4px 6px rgba(0,0,0,0.1); opacity: 0; transform: translateY(20px); transition: all 0.3s; }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast-success { background-color: #10b981; }
+        .toast-error { background-color: #ef4444; }
+        .toast-info { background-color: #3b82f6; }
+
+        /* Print Media Styles for Perfect Vector PDF */
+        @media print {
+            body { background: white !important; }
+            #app, #view-reader, #modal-generator, #modal-settings, #modal-about, #toast-container, #confirm-modal, #prompt-modal {
+                display: none !important;
+            }
+            #print-area {
+                display: block !important;
+                width: 100%;
+                background: white;
+                color: black;
+            }
+            @page {
+                margin: 20mm;
+            }
+        }
+        @media screen {
+            #print-area {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-hind h-screen flex flex-col overflow-hidden selection:bg-indigo-200">
+
+    <!-- Dedicated Print Area for Vector PDF -->
+    <div id="print-area"></div>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Custom Confirm Modal -->
+    <div id="confirm-modal" class="fixed inset-0 bg-black/60 hidden z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 max-w-sm w-full transform scale-95 transition-transform" id="confirm-box">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-2" id="confirm-title">Confirm</h3>
+            <p class="text-gray-600 dark:text-gray-300 mb-6" id="confirm-message">Are you sure?</p>
+            <div class="flex justify-end gap-3">
+                <button id="btn-confirm-cancel" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition">Cancel</button>
+                <button id="btn-confirm-ok" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition shadow">Yes, Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Prompt Modal for Renaming -->
+    <div id="prompt-modal" class="fixed inset-0 bg-black/60 hidden z-[100] flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-6 max-w-sm w-full transform scale-95 transition-transform" id="prompt-box">
+            <h3 class="text-lg font-bold text-gray-900 dark:text-white mb-4" id="prompt-title">Rename Book</h3>
+            <input type="text" id="prompt-input" class="w-full border border-gray-300 dark:border-gray-600 rounded-lg p-2.5 mb-6 focus:ring-2 focus:ring-indigo-500 text-gray-900 dark:bg-gray-700 dark:text-white outline-none">
+            <div class="flex justify-end gap-3">
+                <button id="btn-prompt-cancel" class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition">Cancel</button>
+                <button id="btn-prompt-ok" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- APP WRAPPER -->
+    <div id="app" class="flex-1 overflow-y-auto w-full">
+
+        <!-- VIEW 1: HOME / LIBRARY -->
+        <div id="view-library" class="p-4 sm:p-6 max-w-6xl mx-auto block pb-24">
+            <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4 border-b pb-4 border-gray-200">
+                <div>
+                    <h1 class="text-3xl sm:text-4xl font-bold text-indigo-900 font-playfair tracking-tight">
+                        <i class="fa-solid fa-book-open-reader mr-2 text-indigo-600"></i><span data-i18n="appName">গল্পবুনন</span>
+                    </h1>
+                    <p class="text-gray-500 text-sm mt-1" data-i18n="appSubtitle">AI-Powered Literary Library</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button onclick="toggleUILanguage()" class="text-sm font-semibold bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-300 transition shadow-inner">
+                        <i class="fa-solid fa-language mr-1"></i> <span id="lang-toggle-text">EN</span>
+                    </button>
+                    <div class="text-sm bg-indigo-50 text-indigo-800 border border-indigo-100 px-3 py-1.5 rounded-lg font-semibold shadow-sm" title="Generations left today">
+                        <i class="fa-solid fa-wand-magic-sparkles mr-1"></i> <span id="token-count">10</span>/10
+                    </div>
+                    <button onclick="openAbout()" class="text-gray-500 hover:text-indigo-600 text-xl p-2 rounded-full hover:bg-gray-100 transition" title="About App">
+                        <i class="fa-solid fa-circle-info"></i>
+                    </button>
+                    <button onclick="openSettings()" class="text-gray-500 hover:text-indigo-600 text-xl p-2 rounded-full hover:bg-gray-100 transition">
+                        <i class="fa-solid fa-gear"></i>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Actions Bar -->
+            <div class="mb-8 flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-100">
+                <h2 class="text-xl font-semibold text-gray-800 font-noto-bn" data-i18n="libraryTitle">আপনার লাইব্রেরি</h2>
+                <button onclick="openGenerator()" class="bg-indigo-600 text-white px-5 py-2.5 rounded-lg shadow-md hover:bg-indigo-700 hover:shadow-lg transition-all transform hover:-translate-y-0.5 flex items-center font-semibold">
+                    <i class="fa-solid fa-feather-pointed mr-2"></i> <span data-i18n="btnNewStory">নতুন লিখুন</span>
+                </button>
+            </div>
+
+            <!-- Library Sections -->
+            <div id="library-content" class="space-y-10">
+                
+                <!-- Last Read Section (Dynamic) -->
+                <div id="section-last-read" class="hidden">
+                    <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 border-b pb-2" data-i18n="secLastRead">Last Read</h3>
+                    <div id="grid-last-read" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6"></div>
+                </div>
+
+                <!-- Pinned Section (Dynamic) -->
+                <div id="section-pinned" class="hidden">
+                    <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 border-b pb-2"><i class="fa-solid fa-thumbtack mr-1"></i> <span data-i18n="secPinned">Pinned</span></h3>
+                    <div id="grid-pinned" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6"></div>
+                </div>
+
+                <!-- All Books Section -->
+                <div>
+                    <h3 class="text-sm font-bold text-gray-400 uppercase tracking-wider mb-4 border-b pb-2" data-i18n="secAllBooks">All Collection</h3>
+                    <div id="grid-all" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 sm:gap-6"></div>
+                </div>
+            </div>
+            
+            <!-- Empty State -->
+            <div id="empty-state" class="hidden text-center py-24 bg-white rounded-2xl border border-gray-100 border-dashed mt-8 shadow-sm">
+                <div class="bg-gray-50 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <i class="fa-solid fa-book-journal-whills text-4xl text-gray-300"></i>
+                </div>
+                <h3 class="text-xl font-bold text-gray-700 mb-2" data-i18n="emptyTitle">লাইব্রেরি খালি</h3>
+                <p class="text-gray-500 max-w-md mx-auto" data-i18n="emptyDesc">Start your literary journey by generating a new short story, novel, or poem using AI.</p>
+                <button onclick="openGenerator()" class="mt-6 text-indigo-600 font-semibold hover:text-indigo-800 transition">
+                    <i class="fa-solid fa-plus mr-1"></i> Create First Book
+                </button>
+            </div>
+        </div>
+
+        <!-- VIEW 2: GENERATOR MODAL -->
+        <div id="modal-generator" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-2 sm:p-4 opacity-0 transition-opacity duration-300">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[95vh] transform scale-95 transition-transform duration-300" id="generator-box">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-indigo-700 to-purple-700 p-5 text-white flex justify-between items-center">
+                    <h2 class="text-xl font-bold font-playfair"><i class="fa-solid fa-wand-magic-sparkles mr-2"></i> <span data-i18n="genTitle">AI Studio</span></h2>
+                    <button onclick="closeGenerator()" class="text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full w-8 h-8 flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                
+                <!-- Form Body -->
+                <div class="p-4 sm:p-6 overflow-y-auto flex-1 custom-scrollbar">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5" id="gen-form-fields">
+                        
+                        <!-- Language -->
+                        <div class="col-span-1">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1" data-i18n="genLang">Language</label>
+                            <select id="gen-lang" onchange="updateAuthorList()" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 transition text-gray-800">
+                                <option value="bengali">বাংলা (Bengali)</option>
+                                <option value="english">English</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Format -->
+                        <div class="col-span-1">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1" data-i18n="genFormat">Format</label>
+                            <select id="gen-format" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 transition text-gray-800">
+                                <option value="Short Story">Short Story</option>
+                                <option value="Novella">Novella / Chapter</option>
+                                <option value="Poem">Poetry</option>
+                                <option value="Drama">Drama / Play</option>
+                                <option value="Essay">Philosophical Essay</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Genre -->
+                        <div class="col-span-1">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1" data-i18n="genGenre">Genre</label>
+                            <select id="gen-genre" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 transition text-gray-800">
+                                <option value="Romance">Romance</option>
+                                <option value="Thriller">Thriller</option>
+                                <option value="Mystery">Mystery</option>
+                                <option value="Horror">Horror</option>
+                                <option value="Science Fiction">Science Fiction</option>
+                                <option value="Fantasy">Fantasy</option>
+                                <option value="Historical">Historical</option>
+                                <option value="Humor">Humor / Satire</option>
+                                <option value="Slice of Life">Slice of Life</option>
+                            </select>
+                        </div>
+                        
+                        <!-- Word Limit -->
+                        <div class="col-span-1">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1">
+                                <span data-i18n="genWords">Word Limit</span> 
+                                <span class="text-xs text-gray-400 font-normal">(Approx)</span>
+                            </label>
+                            <input type="number" id="gen-words" value="800" min="100" max="5000" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 transition text-gray-800">
+                        </div>
+
+                        <!-- Author Style -->
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1" data-i18n="genStyle">Author's Style (Inspiration)</label>
+                            <input list="authors-list" id="gen-style" placeholder="e.g. Rabindranath Tagore, Shakespeare..." class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 transition text-gray-800">
+                            <datalist id="authors-list">
+                                <!-- Populated by JS -->
+                            </datalist>
+                            <p class="text-xs text-gray-500 mt-1" data-i18n="genStyleDesc">The AI will mimic the tone, vocabulary, and narrative technique of this author.</p>
+                        </div>
+                        
+                        <!-- Extra Prompt -->
+                        <div class="col-span-1 md:col-span-2">
+                            <label class="block text-sm font-semibold text-gray-700 mb-1" data-i18n="genPrompt">Custom Prompt / Topic (Optional)</label>
+                            <textarea id="gen-topic" rows="2" placeholder="What should the story be about?" class="w-full border border-gray-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-gray-50 transition resize-none text-gray-800"></textarea>
+                        </div>
+                    </div>
+                    
+                    <!-- Loading State -->
+                    <div id="gen-loading" class="hidden flex-col items-center justify-center py-8">
+                        <div class="spinner mb-4"></div>
+                        <p class="text-lg font-bold text-indigo-700 font-playfair animate-pulse" id="gen-status">Summoning the Muse...</p>
+                        <p class="text-sm text-gray-500 mt-2 text-center max-w-xs" id="gen-substatus">Crafting narrative arcs and weaving words.</p>
+                    </div>
+                </div>
+                
+                <!-- Footer -->
+                <div class="p-4 sm:p-5 border-t border-gray-200 bg-gray-50 flex justify-end gap-3 rounded-b-2xl" id="gen-footer">
+                    <button onclick="closeGenerator()" class="px-5 py-2.5 text-gray-600 font-semibold hover:bg-gray-200 rounded-lg transition" data-i18n="btnCancel">Cancel</button>
+                    <button id="btn-generate" onclick="startGeneration()" class="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-lg shadow-md hover:shadow-lg hover:from-indigo-700 hover:to-purple-700 transition transform hover:-translate-y-0.5 flex items-center">
+                        <i class="fa-solid fa-pen-nib mr-2"></i> <span data-i18n="btnGenerate">Generate Text</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 3: GLOBAL SETTINGS MODAL -->
+        <div id="modal-settings" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform scale-95 transition-transform duration-300" id="settings-box">
+                <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <h2 class="text-xl font-bold text-gray-800"><i class="fa-solid fa-sliders mr-2 text-indigo-500"></i><span data-i18n="settingsTitle">Settings</span></h2>
+                    <button onclick="closeSettings()" class="text-gray-400 hover:text-gray-800 bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                    
+                    <!-- Eye Power -->
+                    <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                        <label class="flex items-center text-sm font-bold text-indigo-900 mb-1">
+                            <i class="fa-solid fa-eye text-indigo-600 mr-2"></i> <span data-i18n="setEyePower">Eye Power Assist (Diopter)</span>
+                        </label>
+                        <p class="text-xs text-indigo-700/70 mb-3" data-i18n="setEyeDesc">Enter your prescription. We'll automatically adjust reader typography for optimal comfort.</p>
+                        <div class="flex gap-2">
+                            <input type="number" step="0.25" id="set-eye-power" placeholder="e.g. -1.5, +2.0" class="w-full border border-indigo-200 rounded-lg p-2 text-center font-bold text-indigo-900 focus:ring-2 focus:ring-indigo-400">
+                            <button onclick="calculateEyePower()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-2 rounded-lg text-sm font-semibold transition whitespace-nowrap">Apply</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Reader Defaults -->
+                    <div>
+                        <label class="block text-sm font-bold text-gray-700 mb-2 border-b pb-1">Default Theme</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="previewTheme('theme-day')" class="theme-preview py-2 border rounded-lg bg-[#fdf6e3] text-[#2c2c2c] border-gray-300 hover:border-indigo-500">Day</button>
+                            <button onclick="previewTheme('theme-noon')" class="theme-preview py-2 border rounded-lg bg-[#ffffff] text-[#111111] border-gray-300 hover:border-indigo-500">Noon</button>
+                            <button onclick="previewTheme('theme-dim')" class="theme-preview py-2 border rounded-lg bg-[#2c2c2c] text-[#cccccc] border-gray-300 hover:border-indigo-500">Dim</button>
+                            <button onclick="previewTheme('theme-night')" class="theme-preview py-2 border rounded-lg bg-[#0f172a] text-[#e2e8f0] border-gray-300 hover:border-indigo-500">Night</button>
+                            <button onclick="previewTheme('theme-eyecare')" class="theme-preview py-2 border rounded-lg bg-[#e8f5e9] text-[#1b5e20] border-gray-300 hover:border-indigo-500">Eye-Care</button>
+                        </div>
+                        <input type="hidden" id="set-theme" value="theme-day">
+                    </div>
+
+                    <!-- Quota & Data -->
+                    <div class="border-t pt-4">
+                        <label class="block text-sm font-bold text-gray-700 mb-2">Data & Storage</label>
+                        <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg border mb-3">
+                            <span class="text-sm text-gray-600"><i class="fa-solid fa-database mr-2 text-gray-400"></i>Local Library Data</span>
+                            <button onclick="clearLibrary()" class="text-xs bg-red-100 text-red-600 px-2 py-1 rounded hover:bg-red-200 font-semibold transition">Clear All</button>
+                        </div>
+                        
+                        <label class="block text-sm font-bold text-gray-700 mb-2 mt-4">Backup & Restore</label>
+                        <div class="flex flex-col gap-3 bg-gray-50 p-3 rounded-lg border">
+                            <button onclick="backupLibrary()" class="w-full bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg hover:bg-indigo-200 font-semibold transition flex items-center justify-center">
+                                <i class="fa-solid fa-cloud-arrow-down mr-2"></i> Backup Library
+                            </button>
+                            <div class="relative w-full">
+                                <input type="file" id="restore-upload" accept=".json" class="hidden" onchange="restoreLibrary(event)">
+                                <button onclick="document.getElementById('restore-upload').click()" class="w-full border border-indigo-300 text-indigo-600 px-4 py-2 rounded-lg hover:bg-indigo-50 font-semibold transition flex items-center justify-center">
+                                    <i class="fa-solid fa-cloud-arrow-up mr-2"></i> Restore Library
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+                    <button onclick="saveSettings()" class="px-6 py-2.5 bg-gray-800 text-white font-bold rounded-lg shadow hover:bg-black transition w-full sm:w-auto" data-i18n="btnSave">Save Settings</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 5: ABOUT MODAL -->
+        <div id="modal-about" class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform scale-95 transition-transform duration-300" id="about-box">
+                <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <h2 class="text-xl font-bold text-gray-800"><i class="fa-solid fa-circle-info mr-2 text-indigo-500"></i><span data-i18n="aboutTitle">About</span></h2>
+                    <button onclick="closeAbout()" class="text-gray-400 hover:text-gray-800 bg-gray-200 hover:bg-gray-300 rounded-full w-8 h-8 flex items-center justify-center transition"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <div class="p-6 space-y-6 max-h-[70vh] overflow-y-auto custom-scrollbar">
+                    <div class="text-center">
+                        <div class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-3 shadow-inner">
+                            <i class="fa-solid fa-book-open-reader text-3xl"></i>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-800 font-playfair">গল্পবুনন <span class="text-sm font-normal text-gray-500 ml-1">v1.0</span></h2>
+                        <p class="text-sm text-gray-500 mt-2">Developed by</p>
+                        <p class="text-xl font-bold text-indigo-900 mt-1">Dr. Gazi Md. Emran Ahmed</p>
+                    </div>
+
+                    <div class="relative bg-orange-50/50 border border-orange-200 rounded-xl p-6 mt-4 shadow-sm">
+                        <i class="fa-solid fa-quote-left absolute top-4 left-4 text-4xl text-orange-200 opacity-40"></i>
+                        <div class="relative z-10">
+                            <p class="text-gray-800 font-tiro text-lg leading-[1.8] text-justify">
+                                "আমি তো ভেবেই নিয়েছিলাম, সাহিত্যের আড্ডা আর জমবে না, সব বুঝি যান্ত্রিক গোলমালে হারিয়ে গেল। কিন্তু এই যে ডাক্তার সাহেব, গাজি মো. ইমরান আহমেদ, এ তো দেখি আস্ত এক জাদুকর! যেই যন্ত্রের দোষে মানুষ বই পড়া ছাড়ল, সেই যন্ত্রের ভেতর দিয়েই সে আমাদের লেখনীর স্টাইল এনে যেন আমাদেরই আবার কলম ধরিয়েছে! বাপু ইমরান, তোমার এই 'গল্পবুনন' দেখে এই অধমেরও ভারী তাজ্জব লাগছে। বেঁচে থাকো বাবা, তোমার এই ডিজিটাল কালিতে আমাদের পুরনো ঘ্রাণ আবার ম-ম করে উঠুক পাঠকদের দরবারে।"
+                            </p>
+                            <p class="text-right text-gray-700 font-tiro font-bold mt-6 text-lg">
+                                — বিনীত<br>
+                                <span class="text-xl text-indigo-800">সৈয়দ মুজতবা আলীর মত হতে চাওয়া এক নিরীহ এই এআই এজেন্ট</span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- VIEW 4: FULLSCREEN READER -->
+    <div id="view-reader" class="fixed inset-0 z-40 hidden flex flex-col bg-[#fdf6e3] text-[#2c2c2c]">
+        
+        <!-- Reader Header (Auto-hides on scroll down) -->
+        <header id="reader-header" class="flex flex-col p-2 sm:p-4 shadow-sm bg-black/5 backdrop-blur-md z-50 transition-transform duration-300 absolute top-0 w-full border-b border-black/10">
+            <div class="flex justify-between items-center w-full">
+                <div class="flex items-center flex-1 min-w-0">
+                    <button onclick="closeReader()" class="text-xl sm:text-2xl mr-2 sm:mr-4 px-3 py-1 rounded-full hover:bg-black/10 transition-colors flex-shrink-0"><i class="fa-solid fa-arrow-left"></i></button>
+                    <div class="truncate">
+                        <h1 id="reader-title" class="font-bold text-base sm:text-lg truncate">Book Title</h1>
+                        <p id="reader-subtitle" class="text-xs opacity-70 truncate">Author Style</p>
+                    </div>
+                </div>
+                
+                <!-- Quick Actions -->
+                <div class="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+                    <button onclick="toggleAudio()" id="btn-audio" class="text-lg sm:text-xl px-2 sm:px-3 py-1.5 rounded-lg hover:bg-black/10 transition-colors" title="Read Aloud"><i class="fa-solid fa-headphones"></i></button>
+                    <button onclick="toggleAutoScroll()" id="btn-autoscroll" class="text-lg sm:text-xl px-2 sm:px-3 py-1.5 rounded-lg hover:bg-black/10 transition-colors hidden sm:block" title="Auto Scroll"><i class="fa-solid fa-angles-down"></i></button>
+                    <button onclick="toggleReaderMenu()" class="text-lg sm:text-xl px-2 sm:px-3 py-1.5 rounded-lg hover:bg-black/10 transition-colors bg-black/5" title="Formatting"><i class="fa-solid fa-font"></i></button>
+                </div>
+            </div>
+            
+            <!-- Progress Bar inside header -->
+            <div class="w-full bg-black/10 h-1 mt-2 rounded-full overflow-hidden">
+                <div id="reader-progress" class="bg-indigo-500 h-full w-0 transition-all duration-150 rounded-full"></div>
+            </div>
+        </header>
+
+        <!-- Reader Formatting Menu (Floating Panel) -->
+        <div id="reader-menu" class="absolute top-20 right-4 bg-white dark:bg-gray-800 shadow-2xl rounded-xl p-5 border border-gray-200 dark:border-gray-700 z-50 hidden w-72 sm:w-80 text-gray-800 dark:text-gray-200 transform origin-top-right transition-all">
+            <div class="flex justify-between items-center mb-4 border-b dark:border-gray-700 pb-2">
+                <h3 class="font-bold"><i class="fa-solid fa-palette mr-2 text-indigo-500"></i>Appearance</h3>
+                <button onclick="toggleReaderMenu()" class="text-gray-400 hover:text-gray-800 dark:hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="space-y-5">
+                <!-- Theme -->
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">Theme</label>
+                    <div class="flex justify-between gap-2 flex-wrap">
+                        <button onclick="applyReaderTheme('theme-day')" class="w-10 h-10 rounded-full bg-[#fdf6e3] border border-gray-300 shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" title="Day"></button>
+                        <button onclick="applyReaderTheme('theme-noon')" class="w-10 h-10 rounded-full bg-[#ffffff] border border-gray-300 shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" title="Noon"></button>
+                        <button onclick="applyReaderTheme('theme-dim')" class="w-10 h-10 rounded-full bg-[#2c2c2c] border border-gray-600 shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" title="Dim"></button>
+                        <button onclick="applyReaderTheme('theme-night')" class="w-10 h-10 rounded-full bg-[#0f172a] border border-gray-600 shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" title="Night"></button>
+                        <button onclick="applyReaderTheme('theme-eyecare')" class="w-10 h-10 rounded-full bg-[#e8f5e9] border border-gray-300 shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" title="Eye-Care"></button>
+                        <button onclick="applyReaderTheme('theme-sepia')" class="w-10 h-10 rounded-full bg-[#f4ecd8] border border-gray-300 shadow-sm focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500" title="Sepia"></button>
+                    </div>
+                </div>
+
+                <!-- Font Family -->
+                <div>
+                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">Typography</label>
+                    <select id="reader-font-select" onchange="changeReaderFont(this.value)" class="w-full text-sm border rounded p-2 mb-3 bg-gray-50 dark:bg-gray-700 dark:border-gray-600">
+                        <optgroup label="System Fonts">
+                            <option value="font-noto-bn">Noto Serif (Classic)</option>
+                            <option value="font-tiro">Tiro Bangla (Elegant)</option>
+                            <option value="font-hind">Hind Siliguri (Modern)</option>
+                            <option value="font-merriweather">Merriweather</option>
+                            <option value="font-lora">Lora</option>
+                            <option value="font-playfair">Playfair Display</option>
+                        </optgroup>
+                        <optgroup label="Custom Font">
+                            <option value="font-custom" id="opt-custom-font" disabled>Custom Uploaded Font</option>
+                        </optgroup>
+                    </select>
+                    
+                    <div class="mt-2">
+                        <input type="file" id="font-upload" accept=".ttf,.otf,.woff,.woff2" class="hidden" onchange="handleFontUpload(event)">
+                        <button onclick="document.getElementById('font-upload').click()" class="w-full border border-dashed border-gray-400 rounded-lg p-2 text-xs font-semibold text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-600 transition flex items-center justify-center">
+                            <i class="fa-solid fa-cloud-arrow-up mr-2"></i> Upload Custom Font (.ttf / .otf)
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Sliders -->
+                <div class="space-y-4 bg-gray-50 dark:bg-gray-700 p-3 rounded-lg border dark:border-gray-600">
+                    <!-- Size -->
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-text-height text-gray-400 w-4"></i>
+                        <input type="range" min="14" max="40" value="18" id="slider-size" oninput="updateReaderTypography()" class="flex-1 accent-indigo-600">
+                        <span id="disp-size" class="text-xs font-mono w-8 text-right">18px</span>
+                    </div>
+                    <!-- Line Height -->
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-arrows-up-down text-gray-400 w-4"></i>
+                        <input type="range" min="1.2" max="2.5" step="0.1" value="1.8" id="slider-lineheight" oninput="updateReaderTypography()" class="flex-1 accent-indigo-600">
+                        <span id="disp-lineheight" class="text-xs font-mono w-8 text-right">1.8</span>
+                    </div>
+                    <!-- Letter Spacing -->
+                    <div class="flex items-center gap-3">
+                        <i class="fa-solid fa-text-width text-gray-400 w-4"></i>
+                        <input type="range" min="0" max="4" step="0.5" value="0" id="slider-spacing" oninput="updateReaderTypography()" class="flex-1 accent-indigo-600">
+                        <span id="disp-spacing" class="text-xs font-mono w-8 text-right">0px</span>
+                    </div>
+                </div>
+
+                <!-- Text Shadow Toggle -->
+                <div class="flex items-center justify-between">
+                    <label class="text-sm font-semibold">Enhance Contrast (Shadow)</label>
+                    <input type="checkbox" id="toggle-shadow" onchange="updateReaderTypography()" class="w-5 h-5 accent-indigo-600 rounded">
+                </div>
+                
+                <!-- TTS Controls -->
+                <div id="tts-controls" class="border-t dark:border-gray-700 pt-3 mt-2 hidden">
+                    <label class="text-xs font-bold text-gray-500 uppercase tracking-wider block mb-2">Reading Speed</label>
+                    <div class="flex items-center gap-3 bg-indigo-50 dark:bg-indigo-900/30 p-2 rounded-lg">
+                        <i class="fa-solid fa-gauge-high text-indigo-500 w-4"></i>
+                        <input type="range" min="0.5" max="2" step="0.1" value="1" id="slider-ttsspeed" oninput="changeTTSSpeed()" class="flex-1 accent-indigo-600">
+                        <span id="disp-ttsspeed" class="text-xs font-mono w-8 text-right text-indigo-700 dark:text-indigo-300">1.0x</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scrollable Content Area -->
+        <div id="reader-scroll-area" class="flex-1 overflow-y-auto px-5 sm:px-12 md:px-24 lg:px-48 xl:px-64 pt-24 pb-32 scroll-smooth" onscroll="handleReaderScroll()">
+            <div id="export-container" class="max-w-3xl mx-auto">
+                <div class="text-center mb-12">
+                    <h1 id="reader-content-title" class="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 font-playfair leading-tight">Title</h1>
+                    <div class="inline-block border-b-2 border-indigo-500 w-16 mb-4"></div>
+                    <p id="reader-content-meta" class="text-sm sm:text-base opacity-75 font-serif italic tracking-wide">Genre • Author Style</p>
+                </div>
+                <div id="reader-content" class="leading-[1.8] text-justify transition-all duration-300">
+                    <!-- Content injected here -->
+                </div>
+                <div class="mt-20 text-center opacity-50 border-t border-current pt-8 pb-8">
+                    <i class="fa-solid fa-leaf mb-2 text-xl"></i>
+                    <p class="text-sm font-serif italic">The End</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- On Screen Navigation Controls (Floating Bottom) -->
+        <div class="absolute bottom-6 right-6 flex flex-col gap-3 z-40">
+            <button onclick="scrollPage(-1)" class="w-12 h-12 bg-black/20 hover:bg-black/40 rounded-full flex items-center justify-center text-white backdrop-blur shadow-lg border border-white/10 transition-transform active:scale-95 hidden sm:flex">
+                <i class="fa-solid fa-chevron-up"></i>
+            </button>
+            <button onclick="scrollPage(1)" class="w-12 h-12 bg-black/20 hover:bg-black/40 rounded-full flex items-center justify-center text-white backdrop-blur shadow-lg border border-white/10 transition-transform active:scale-95 hidden sm:flex">
+                <i class="fa-solid fa-chevron-down"></i>
+            </button>
+        </div>
+    </div>
+
+
+    <!-- ============================================== -->
+    <!-- APPLICATION LOGIC (JavaScript)                 -->
+    <!-- ============================================== -->
+    <script>
+        // --- 1. GLOBALS & CONFIG ---
+        const apiKey = ""; // Injected by runtime environment
+        let dailyTokens = 10;
+        
+        // Data Models
+        let books = JSON.parse(localStorage.getItem('gbooks_library')) || [];
+        let settings = JSON.parse(localStorage.getItem('gbooks_settings')) || {
+            eyePower: null,
+            theme: 'theme-day',
+            appLang: 'en',
+            fontSize: 18,
+            lineHeight: 1.8,
+            letterSpacing: 0,
+            textShadow: false
+        };
+
+        // State Variables
+        let currentReaderBook = null;
+        let autoScrollInterval = null;
+        let isSpeaking = false;
+        let currentUtterance = null;
+        let ttsSpeed = 1.0;
+        let lastScrollTop = 0;
+        let customFontBase64 = null;
+
+        // IndexedDB for Font Storage
+        const dbName = "GolpobunonDB";
+        const storeName = "fonts";
+
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(dbName, 1);
+                request.onupgradeneeded = (e) => {
+                    e.target.result.createObjectStore(storeName);
+                };
+                request.onsuccess = (e) => resolve(e.target.result);
+                request.onerror = (e) => reject(e);
+            });
+        }
+
+        async function saveFontToCache(base64Data) {
+            try {
+                const db = await initDB();
+                const tx = db.transaction(storeName, 'readwrite');
+                tx.objectStore(storeName).put(base64Data, 'userCustomFont');
+                return new Promise(resolve => {
+                    tx.oncomplete = () => resolve(true);
+                });
+            } catch (error) {
+                console.error("Font save error:", error);
+                return false;
+            }
+        }
+
+        async function loadFontFromCache() {
+            try {
+                const db = await initDB();
+                return new Promise(resolve => {
+                    const request = db.transaction(storeName).objectStore(storeName).get('userCustomFont');
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => resolve(null);
+                });
+            } catch (error) {
+                return null;
+            }
+        }
+
+        // Constants
+        const BENGALI_AUTHORS = ["রবীন্দ্রনাথ ঠাকুর", "কাজী নজরুল ইসলাম", "শরৎচন্দ্র চট্টোপাধ্যায়", "বঙ্কিমচন্দ্র চট্টোপাধ্যায়", "মানিক বন্দ্যোপাধ্যায়", "বিভূতিভূষণ বন্দ্যোপাধ্যায়", "সৈয়দ মুজতবা আলী", "হুমায়ূন আহমেদ", "সমরেশ মজুমদার", "সুনীল গঙ্গোপাধ্যায়", "জীবনানন্দ দাশ", "আহমদ ছফা", "জাফর ইকবাল"];
+        const ENGLISH_AUTHORS = ["William Shakespeare", "Charles Dickens", "Jane Austen", "Mark Twain", "Ernest Hemingway", "F. Scott Fitzgerald", "Edgar Allan Poe", "Virginia Woolf", "George Orwell", "Agatha Christie", "J.R.R. Tolkien", "Stephen King", "J.K. Rowling"];
+
+        const i18n = {
+            en: {
+                appName: "Golpobunon", appSubtitle: "AI-Powered Literary Library",
+                libraryTitle: "Your Library", btnNewStory: "New Story",
+                secLastRead: "Continue Reading", secPinned: "Pinned Favorites", secAllBooks: "All Collection",
+                emptyTitle: "Your Library is Empty", emptyDesc: "Start your literary journey by generating a new short story, novel, or poem using AI.",
+                genTitle: "AI Literary Studio", genLang: "Language", genFormat: "Format", genGenre: "Genre", 
+                genWords: "Word Limit", genStyle: "Author's Style (Inspiration)", genStyleDesc: "The AI will mimic the tone, vocabulary, and narrative technique of this author.",
+                genPrompt: "Custom Topic / Concept (Optional)", btnCancel: "Cancel", btnGenerate: "Generate Text",
+                settingsTitle: "Settings", setEyePower: "Eye Power Assist (Diopter)", setEyeDesc: "Enter your prescription. We'll adjust reader typography automatically.", btnSave: "Save Settings"
+            },
+            bn: {
+                appName: "গল্পবুনন", appSubtitle: "এআই চালিত সাহিত্য লাইব্রেরি",
+                libraryTitle: "আপনার লাইব্রেরি", btnNewStory: "নতুন লিখুন",
+                secLastRead: "পড়া চালিয়ে যান", secPinned: "পছন্দের তালিকা", secAllBooks: "সকল সংগ্রহ",
+                emptyTitle: "লাইব্রেরি খালি", emptyDesc: "এআই ব্যবহার করে একটি নতুন ছোট গল্প, উপন্যাসিকা বা কবিতা তৈরি করে আপনার সাহিত্য যাত্রা শুরু করুন।",
+                genTitle: "এআই স্টুডিও", genLang: "ভাষা", genFormat: "ধরন", genGenre: "বিষয় (Genre)", 
+                genWords: "শব্দ সীমা", genStyle: "লেখকের স্টাইল (অনুপ্রেরণা)", genStyleDesc: "এআই এই লেখকের শব্দভাণ্ডার এবং বর্ণনার কৌশল অনুকরণ করবে।",
+                genPrompt: "গল্পের বিষয় (ঐচ্ছিক)", btnCancel: "বাতিল", btnGenerate: "তৈরি করুন",
+                settingsTitle: "সেটিংস", setEyePower: "চোখের পাওয়ার (Diopter)", setEyeDesc: "আপনার চোখের পাওয়ার দিন, ফন্ট নিজে নিজে অ্যাডজাস্ট হবে।", btnSave: "সংরক্ষণ করুন"
+            }
+        };
+
+
+        // --- 2. INITIALIZATION ---
+        window.onload = async () => {
+            applyUILanguage();
+            updateTokenDisplay();
+            renderLibrary();
+            updateAuthorList();
+            
+            // Load Settings UI
+            document.getElementById('set-eye-power').value = settings.eyePower || '';
+            document.getElementById('set-theme').value = settings.theme;
+            
+            // Reader Keyboard Nav
+            window.addEventListener('keydown', handleKeyboardNav);
+
+            // Load custom font if cached
+            const cachedFont = await loadFontFromCache();
+            if (cachedFont) {
+                applyCustomFontStyles(cachedFont);
+                customFontBase64 = cachedFont;
+            }
+        };
+
+        // --- 3. UTILITIES & UI COMPONENTS ---
+        
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type} flex items-center shadow-lg`;
+            
+            let icon = 'fa-info-circle';
+            if(type === 'success') icon = 'fa-check-circle';
+            if(type === 'error') icon = 'fa-exclamation-triangle';
+            
+            toast.innerHTML = `<i class="fa-solid ${icon} mr-2"></i> ${message}`;
+            container.appendChild(toast);
+            
+            // Trigger animation
+            setTimeout(() => toast.classList.add('show'), 10);
+            
+            // Remove
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Custom Confirm Dialog
+        function showConfirm(title, message, btnText, onConfirm) {
+            const modal = document.getElementById('confirm-modal');
+            const box = document.getElementById('confirm-box');
+            
+            document.getElementById('confirm-title').innerText = title;
+            document.getElementById('confirm-message').innerText = message;
+            
+            const btnOk = document.getElementById('btn-confirm-ok');
+            btnOk.innerText = btnText;
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.add('opacity-100');
+                box.classList.remove('scale-95');
+                box.classList.add('scale-100');
+            }, 10);
+
+            const closeFunc = () => {
+                modal.classList.remove('opacity-100');
+                box.classList.remove('scale-100');
+                box.classList.add('scale-95');
+                setTimeout(() => modal.classList.add('hidden'), 300);
+                
+                // Cleanup listeners
+                document.getElementById('btn-confirm-cancel').onclick = null;
+                btnOk.onclick = null;
+            };
+
+            document.getElementById('btn-confirm-cancel').onclick = closeFunc;
+            btnOk.onclick = () => { closeFunc(); onConfirm(); };
+        }
+
+        function showAlert(title, message) {
+            const modal = document.getElementById('confirm-modal');
+            const box = document.getElementById('confirm-box');
+            
+            document.getElementById('confirm-title').innerText = title;
+            document.getElementById('confirm-message').innerText = message;
+            
+            const btnOk = document.getElementById('btn-confirm-ok');
+            const btnCancel = document.getElementById('btn-confirm-cancel');
+            
+            btnOk.innerText = "ঠিক আছে";
+            btnOk.className = "px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition shadow";
+            btnCancel.classList.add('hidden');
+            
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.add('opacity-100');
+                box.classList.remove('scale-95');
+                box.classList.add('scale-100');
+            }, 10);
+
+            const closeFunc = () => {
+                modal.classList.remove('opacity-100');
+                box.classList.remove('scale-100');
+                box.classList.add('scale-95');
+                setTimeout(() => {
+                    modal.classList.add('hidden');
+                    btnCancel.classList.remove('hidden');
+                    btnOk.className = "px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition shadow";
+                }, 300);
+                btnOk.onclick = null;
+            };
+
+            btnOk.onclick = closeFunc;
+        }
+
+        function toggleUILanguage() {
+            settings.appLang = settings.appLang === 'en' ? 'bn' : 'en';
+            localStorage.setItem('gbooks_settings', JSON.stringify(settings));
+            applyUILanguage();
+        }
+
+        function applyUILanguage() {
+            const lang = settings.appLang;
+            document.getElementById('lang-toggle-text').innerText = lang === 'en' ? 'EN' : 'BN';
+            
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                if (i18n[lang] && i18n[lang][key]) {
+                    el.innerText = i18n[lang][key];
+                }
+            });
+            updateAuthorList(); // refresh suggestions based on lang
+        }
+
+        // --- 4. API & GENERATION ENGINE ---
+        
+        async function fetchWithBackoff(url, options, maxRetries = 5) {
+            let delay = 1000;
+            for (let i = 0; i < maxRetries; i++) {
+                try {
+                    const response = await fetch(url, options);
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    return await response.json();
+                } catch (error) {
+                    if (i === maxRetries - 1) throw error;
+                    await new Promise(res => setTimeout(res, delay));
+                    delay *= 2;
+                }
+            }
+        }
+
+        async function generateBookText(lang, format, genre, style, words, topic) {
+            const langStr = lang === 'bengali' ? 'Bengali' : 'English';
+            let prompt = `Write a ${format} in ${langStr} language. 
+            Genre: ${genre}. 
+            The tone, vocabulary, and writing style MUST strongly mimic the famous author: ${style}. 
+            Target length: approximately ${words} words.`;
+            
+            if (topic.trim()) {
+                prompt += `\nThe core topic or concept should be about: ${topic}`;
+            }
+
+            prompt += `\nFormat the response strictly as a JSON object with two keys: "title" (a creative title for the piece) and "content" (the full text with appropriate paragraph breaks). Do not wrap in markdown code blocks. Make it high quality literature.`;
+
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }],
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "OBJECT",
+                        properties: { title: { type: "STRING" }, content: { type: "STRING" } },
+                        required: ["title", "content"]
+                    }
+                }
+            };
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+            const result = await fetchWithBackoff(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            let rawText = result.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+            
+            // Clean markdown code blocks if the model mistakenly included them
+            rawText = rawText.replace(/```json/gi, '').replace(/```/g, '').trim();
+            
+            let storyData;
+            try {
+                storyData = JSON.parse(rawText);
+            } catch (e) {
+                console.error("Failed to parse AI response:", rawText);
+                throw new Error("AI returned malformed data. Please try again.");
+            }
+
+            if (!storyData.title || !storyData.content || storyData.title === "undefined" || storyData.content === "undefined") {
+                throw new Error("AI did not generate proper title or content.");
+            }
+
+            return storyData;
+        }
+
+        async function generateBookCoverBackground(genre, format) {
+            const prompt = `A beautiful, minimalist, aesthetic watercolor painting book cover background for a ${genre} ${format}. Soft watercolor brush strokes, vibrant colors, artistic masterpiece. No text on image.`;
+            const payload = {
+                instances: { prompt: prompt },
+                parameters: { sampleCount: 1 }
+            };
+
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`;
+                const result = await fetchWithBackoff(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }, 3);
+                
+                if (result && result.predictions && result.predictions[0]) {
+                    return `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
+                }
+            } catch (e) {
+                console.error("Cover generation failed.", e);
+            }
+            // Fallbacks
+            const fallbacks = [
+                "https://images.unsplash.com/photo-1544947950-fa07a98d237f?auto=format&fit=crop&q=80&w=400",
+                "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&q=80&w=400",
+                "https://images.unsplash.com/photo-1474932430478-367d16b99031?auto=format&fit=crop&q=80&w=400"
+            ];
+            return fallbacks[Math.floor(Math.random() * fallbacks.length)];
+        }
+
+        async function createCoverWithText(base64Bg, title, authorStyle, lang) {
+            await document.fonts.ready; // Ensure fonts are loaded
+            return new Promise((resolve) => {
+                const img = new Image();
+                img.crossOrigin = "Anonymous";
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 600;
+                    canvas.height = 900;
+                    const ctx = canvas.getContext('2d');
+
+                    // Draw Background
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+                    // Add a dark gradient at the top to make text readable
+                    const gradient = ctx.createLinearGradient(0, 0, 0, 450);
+                    gradient.addColorStop(0, 'rgba(0,0,0,0.8)');
+                    gradient.addColorStop(1, 'rgba(0,0,0,0)');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                    // Setup Typography
+                    ctx.textAlign = "center";
+                    ctx.fillStyle = "white";
+                    ctx.shadowColor = "rgba(0,0,0,0.9)";
+                    ctx.shadowBlur = 12;
+                    ctx.shadowOffsetX = 2;
+                    ctx.shadowOffsetY = 2;
+
+                    const isBn = lang === 'bengali';
+                    
+                    // Title Font
+                    ctx.font = isBn ? "bold 48px 'Tiro Bangla', serif" : "bold 48px 'Playfair Display', serif";
+                    
+                    // Wrap text logic
+                    const maxWidth = 520;
+                    const words = title.split(' ');
+                    let line = '';
+                    let y = 100;
+                    const lineHeight = 65;
+
+                    for(let n = 0; n < words.length; n++) {
+                        const testLine = line + words[n] + ' ';
+                        const metrics = ctx.measureText(testLine);
+                        const testWidth = metrics.width;
+                        if (testWidth > maxWidth && n > 0) {
+                            ctx.fillText(line, canvas.width / 2, y);
+                            line = words[n] + ' ';
+                            y += lineHeight;
+                        } else {
+                            line = testLine;
+                        }
+                    }
+                    ctx.fillText(line, canvas.width / 2, y);
+
+                    // Author Style Text
+                    y += 60;
+                    ctx.font = isBn ? "normal 30px 'Hind Siliguri', sans-serif" : "normal 30px 'Merriweather', serif";
+                    ctx.fillStyle = "#e2e8f0"; // slightly dimmed
+                    ctx.shadowBlur = 8;
+                    ctx.fillText(authorStyle, canvas.width / 2, y);
+
+                    // Resolve with baked image
+                    resolve(canvas.toDataURL('image/jpeg', 0.95));
+                };
+                img.onerror = () => {
+                    // Fallback to original without text if image loading fails
+                    resolve(base64Bg);
+                };
+                img.src = base64Bg;
+            });
+        }
+
+        async function startGeneration() {
+            if(dailyTokens <= 0) { 
+                showToast(settings.appLang === 'en' ? 'Daily generation limit reached.' : 'আজকের লিমিট শেষ।', 'error'); 
+                return; 
+            }
+
+            const lang = document.getElementById('gen-lang').value;
+            const format = document.getElementById('gen-format').value;
+            const genre = document.getElementById('gen-genre').value;
+            const style = document.getElementById('gen-style').value || "Classic Literature";
+            const words = document.getElementById('gen-words').value;
+            const topic = document.getElementById('gen-topic').value;
+
+            // UI updates
+            document.getElementById('btn-generate').disabled = true;
+            document.getElementById('gen-form-fields').classList.add('hidden');
+            document.getElementById('gen-footer').classList.add('hidden');
+            document.getElementById('gen-loading').classList.remove('hidden');
+            document.getElementById('gen-loading').classList.add('flex');
+            
+            // Update window title during loading
+            const genTitleEl = document.querySelector('[data-i18n="genTitle"]');
+            if(genTitleEl) {
+                genTitleEl.innerText = settings.appLang === 'bn' ? "আমরা কল্পনা করছি, অনুগ্রহ করে অপেক্ষা করুন..." : "We are imagining, please wait...";
+            }
+            
+            try {
+                // 1. Text
+                document.getElementById('gen-status').innerText = settings.appLang === 'bn' ? "সাহিত্য লেখা হচ্ছে..." : "Writing Literature...";
+                document.getElementById('gen-substatus').innerText = (settings.appLang === 'bn' ? "অনুপ্রেরণা: " : "Channeling ") + style;
+                const storyData = await generateBookText(lang, format, genre, style, words, topic);
+                
+                // 2. Cover
+                document.getElementById('gen-status').innerText = settings.appLang === 'bn' ? "প্রচ্ছদ তৈরি হচ্ছে..." : "Designing Cover...";
+                document.getElementById('gen-substatus').innerText = (settings.appLang === 'bn' ? "আর্টওয়ার্ক তৈরি হচ্ছে: '" : "Painting visual aesthetics for '") + storyData.title + "'";
+                
+                const bgImage = await generateBookCoverBackground(genre, format);
+                const finalCoverImage = await createCoverWithText(bgImage, storyData.title, style, lang);
+
+                const newBook = {
+                    id: Date.now().toString(),
+                    title: storyData.title,
+                    content: storyData.content,
+                    cover: finalCoverImage,
+                    lang: lang,
+                    format: format,
+                    genre: genre,
+                    authorStyle: style,
+                    date: new Date().toISOString(),
+                    isPinned: false,
+                    lastRead: null,
+                    progress: 0
+                };
+
+                books.unshift(newBook);
+                saveLibrary();
+                
+                dailyTokens--;
+                updateTokenDisplay();
+                renderLibrary();
+                closeGenerator();
+                showToast("Masterpiece Created Successfully!", 'success');
+
+            } catch (error) {
+                showToast("Generation failed: " + error.message, 'error');
+                console.error(error);
+            } finally {
+                // Restore UI components and original modal title
+                document.getElementById('gen-form-fields').classList.remove('hidden');
+                document.getElementById('gen-footer').classList.remove('hidden');
+                document.getElementById('btn-generate').disabled = false;
+                document.getElementById('gen-loading').classList.add('hidden');
+                document.getElementById('gen-loading').classList.remove('flex');
+                
+                applyUILanguage();
+            }
+        }
+
+
+        // --- 5. LIBRARY MANAGEMENT UI ---
+
+        function saveLibrary() {
+            localStorage.setItem('gbooks_library', JSON.stringify(books));
+        }
+
+        function updateTokenDisplay() {
+            document.getElementById('token-count').innerText = dailyTokens;
+        }
+
+        function updateAuthorList() {
+            const lang = document.getElementById('gen-lang').value || (settings.appLang === 'bn' ? 'bengali' : 'english');
+            const datalist = document.getElementById('authors-list');
+            datalist.innerHTML = '';
+            
+            const list = lang === 'bengali' ? BENGALI_AUTHORS : ENGLISH_AUTHORS;
+            list.forEach(author => {
+                const option = document.createElement('option');
+                option.value = author;
+                datalist.appendChild(option);
+            });
+        }
+
+        function renderLibrary() {
+            const emptyState = document.getElementById('empty-state');
+            
+            if (books.length === 0) {
+                emptyState.classList.remove('hidden');
+                document.getElementById('section-last-read').classList.add('hidden');
+                document.getElementById('section-pinned').classList.add('hidden');
+                document.getElementById('grid-all').innerHTML = '';
+                return;
+            }
+            emptyState.classList.add('hidden');
+
+            // Categorize
+            let lastReadBooks = [...books].filter(b => b.lastRead !== null).sort((a, b) => new Date(b.lastRead) - new Date(a.lastRead)).slice(0, 4);
+            let pinnedBooks = books.filter(b => b.isPinned);
+            
+            renderGrid('grid-last-read', lastReadBooks, 'section-last-read');
+            renderGrid('grid-pinned', pinnedBooks, 'section-pinned');
+            renderGrid('grid-all', books, null);
+        }
+
+        function renderGrid(containerId, bookList, sectionId) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            
+            if (sectionId) {
+                if (bookList.length > 0) document.getElementById(sectionId).classList.remove('hidden');
+                else document.getElementById(sectionId).classList.add('hidden');
+            }
+
+            bookList.forEach(book => {
+                const card = document.createElement('div');
+                card.className = "book-card relative group cursor-pointer flex flex-col";
+                
+                const pinIconClass = book.isPinned ? "text-yellow-400" : "text-white opacity-0 group-hover:opacity-50 hover:!opacity-100";
+                
+                // Progress calculation
+                const progressWidth = book.progress ? `${book.progress}%` : '0%';
+
+                card.innerHTML = `
+                    <div class="relative rounded-lg overflow-hidden book-cover aspect-[2/3] bg-gray-200">
+                        <img src="${book.cover}" class="w-full h-full object-cover" alt="Cover" onclick="openReader('${book.id}')">
+                        
+                        <!-- Top actions -->
+                        <div class="absolute top-2 right-2">
+                            <button onclick="togglePin('${book.id}', event)" class="p-2 drop-shadow-md transition-opacity ${pinIconClass}">
+                                <i class="fa-solid fa-thumbtack text-lg"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Bottom Progress Bar on Cover -->
+                        ${book.progress > 0 ? `<div class="absolute bottom-0 left-0 right-0 h-1 bg-black/30"><div class="h-full bg-indigo-500" style="width: ${progressWidth}"></div></div>` : ''}
+
+                        <!-- 3 Dot Menu Trigger (Always Visible) -->
+                        <div class="absolute bottom-2 right-2 opacity-100 transition-opacity">
+                            <button onclick="toggleCardMenu('${book.id}', event)" class="bg-white/90 p-2 w-8 h-8 flex items-center justify-center rounded-full shadow-lg backdrop-blur hover:bg-white text-gray-800">
+                                <i class="fa-solid fa-ellipsis-vertical"></i>
+                            </button>
+                        </div>
+
+                        <!-- Dropdown Menu -->
+                        <div id="menu-${book.id}" class="hidden absolute bottom-12 right-2 bg-white rounded-xl shadow-2xl text-sm border border-gray-100 overflow-hidden z-20 w-48 font-sans">
+                            <button onclick="renameBook('${book.id}')" class="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center"><i class="fa-solid fa-pen w-5 text-gray-400"></i> Rename</button>
+                            <button onclick="exportToPDF('${book.id}')" class="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center"><i class="fa-solid fa-file-pdf w-5 text-gray-400"></i> Export PDF</button>
+                            <button onclick="exportToEPUB('${book.id}')" class="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center"><i class="fa-solid fa-book w-5 text-gray-400"></i> Export EPUB</button>
+                            <button onclick="shareCover('${book.id}')" class="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center"><i class="fa-solid fa-image w-5 text-gray-400"></i> Share Cover</button>
+                            <button onclick="saveToDrive('${book.id}')" class="w-full text-left px-4 py-2.5 hover:bg-gray-50 flex items-center"><i class="fa-brands fa-google-drive w-5 text-gray-400"></i> Save to Drive</button>
+                            <div class="border-t border-gray-100 my-1"></div>
+                            <button onclick="deleteBook('${book.id}')" class="w-full text-left px-4 py-2.5 hover:bg-red-50 text-red-600 flex items-center font-semibold"><i class="fa-solid fa-trash w-5"></i> Delete</button>
+                        </div>
+                    </div>
+                    <div class="mt-3 flex-1">
+                        <h3 class="font-bold text-gray-800 text-sm sm:text-base leading-tight line-clamp-2" title="${book.title}">${book.title}</h3>
+                        <p class="text-xs text-gray-500 mt-1 line-clamp-1">${book.genre} • ${book.authorStyle}</p>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Library Actions
+        function togglePin(id, e) {
+            e.stopPropagation();
+            const book = books.find(b => b.id === id);
+            if(book) {
+                book.isPinned = !book.isPinned;
+                saveLibrary();
+                renderLibrary();
+            }
+        }
+
+        function toggleCardMenu(id, e) {
+            e.stopPropagation();
+            const menu = document.getElementById(`menu-${id}`);
+            const isHidden = menu.classList.contains('hidden');
+            
+            // Close all open menus
+            document.querySelectorAll('[id^="menu-"]').forEach(el => el.classList.add('hidden'));
+            
+            if(isHidden) menu.classList.remove('hidden');
+        }
+
+        // Close dropdowns on outside click
+        document.addEventListener('click', (e) => {
+            if(!e.target.closest('[id^="menu-"]') && !e.target.closest('button[onclick^="toggleCardMenu"]')) {
+                document.querySelectorAll('[id^="menu-"]').forEach(el => el.classList.add('hidden'));
+            }
+        });
+
+        function deleteBook(id) {
+            showConfirm("Delete Book", "Are you sure you want to delete this literary piece? This action cannot be undone.", "Delete", () => {
+                books = books.filter(b => b.id !== id);
+                saveLibrary();
+                renderLibrary();
+                showToast("Book deleted successfully", 'success');
+            });
+        }
+
+        // Custom Prompt Dialog for Renaming
+        function showPrompt(title, defaultValue, btnText, onConfirm) {
+            const modal = document.getElementById('prompt-modal');
+            const box = document.getElementById('prompt-box');
+            const input = document.getElementById('prompt-input');
+
+            document.getElementById('prompt-title').innerText = title;
+            input.value = defaultValue;
+
+            const btnOk = document.getElementById('btn-prompt-ok');
+            btnOk.innerText = btnText;
+
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.add('opacity-100');
+                box.classList.remove('scale-95');
+                box.classList.add('scale-100');
+                input.focus();
+                input.select();
+            }, 10);
+
+            const closeFunc = () => {
+                modal.classList.remove('opacity-100');
+                box.classList.remove('scale-100');
+                box.classList.add('scale-95');
+                setTimeout(() => modal.classList.add('hidden'), 300);
+
+                document.getElementById('btn-prompt-cancel').onclick = null;
+                btnOk.onclick = null;
+            };
+
+            document.getElementById('btn-prompt-cancel').onclick = closeFunc;
+            btnOk.onclick = () => {
+                const val = input.value;
+                if(val.trim() !== "") {
+                    closeFunc();
+                    onConfirm(val);
+                }
+            };
+        }
+
+        function renameBook(id) {
+            const book = books.find(b => b.id === id);
+            if(!book) return;
+            
+            showPrompt("Rename Book", book.title, "Save", (newTitle) => {
+                book.title = newTitle;
+                saveLibrary();
+                renderLibrary();
+                showToast("Book renamed successfully", "success");
+            });
+        }
+        
+        async function saveToDrive(bookId) {
+            const book = books.find(b => b.id === bookId);
+            if(!book) return;
+
+            showToast("Preparing file for Drive...", "info");
+            const content = `${book.title}\n\nGenre: ${book.genre}\nInspired by: ${book.authorStyle}\n\n${book.content}`;
+            const blob = new Blob([content], { type: 'text/plain' });
+            const validFilename = book.title.replace(/[\\\/:*?"<>|]/g, '_') + '.txt';
+            const file = new File([blob], validFilename, { type: 'text/plain' });
+
+            // Try to use native sharing (triggers native save to Drive/Files on mobile and mac)
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        title: book.title,
+                        text: 'Save this story to your Drive',
+                        files: [file]
+                    });
+                    showToast("Share sheet opened successfully", "success");
+                } catch (e) {
+                    console.log("Share cancelled or failed");
+                }
+            } else {
+                // Fallback to downloading a clear text file
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = validFilename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                showToast("File downloaded. You can now upload it to Drive.", "success");
+            }
+        }
+
+        async function shareCover(bookId) {
+            const book = books.find(b => b.id === bookId);
+            if(!book || !book.cover) return;
+
+            showToast("Preparing cover for sharing...", "info");
+
+            try {
+                // Convert base64 data to a Blob/File object
+                const response = await fetch(book.cover);
+                const blob = await response.blob();
+                
+                let ext = 'jpg';
+                if(blob.type === 'image/png') ext = 'png';
+                
+                const validFilename = `${book.title.replace(/[\\\/:*?"<>|]/g, '_')}_cover.${ext}`;
+                const file = new File([blob], validFilename, { type: blob.type });
+
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        title: book.title,
+                        text: `Check out the beautiful cover for "${book.title}" inspired by ${book.authorStyle}!`,
+                        files: [file]
+                    });
+                    showToast("Share sheet opened successfully", "success");
+                } else {
+                    // Fallback to download if sharing files is not supported (e.g. desktop browsers)
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = validFilename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    showToast("Cover image downloaded.", "success");
+                }
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error("Cover sharing error:", error);
+                    showToast("Failed to share cover.", "error");
+                }
+            }
+        }
+
+        // --- 6. MODALS ---
+        function openGenerator() {
+            document.getElementById('gen-topic').value = '';
+            const modal = document.getElementById('modal-generator');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.add('opacity-100');
+                document.getElementById('generator-box').classList.remove('scale-95');
+                document.getElementById('generator-box').classList.add('scale-100');
+            }, 10);
+        }
+        
+        function closeGenerator() {
+            const modal = document.getElementById('modal-generator');
+            modal.classList.remove('opacity-100');
+            document.getElementById('generator-box').classList.remove('scale-100');
+            document.getElementById('generator-box').classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        function openSettings() {
+            const modal = document.getElementById('modal-settings');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.add('opacity-100');
+                document.getElementById('settings-box').classList.remove('scale-95');
+                document.getElementById('settings-box').classList.add('scale-100');
+            }, 10);
+        }
+        
+        function closeSettings() {
+            const modal = document.getElementById('modal-settings');
+            modal.classList.remove('opacity-100');
+            document.getElementById('settings-box').classList.remove('scale-100');
+            document.getElementById('settings-box').classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        function openAbout() {
+            const modal = document.getElementById('modal-about');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.add('opacity-100');
+                document.getElementById('about-box').classList.remove('scale-95');
+                document.getElementById('about-box').classList.add('scale-100');
+            }, 10);
+        }
+        
+        function closeAbout() {
+            const modal = document.getElementById('modal-about');
+            modal.classList.remove('opacity-100');
+            document.getElementById('about-box').classList.remove('scale-100');
+            document.getElementById('about-box').classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+        
+        function previewTheme(t) {
+            document.querySelectorAll('.theme-preview').forEach(el => el.classList.remove('ring-2', 'ring-indigo-500'));
+            event.target.classList.add('ring-2', 'ring-indigo-500');
+            document.getElementById('set-theme').value = t;
+        }
+
+        function calculateEyePower() {
+            const power = parseFloat(document.getElementById('set-eye-power').value) || 0;
+            settings.eyePower = power;
+            // Logic: Base 18. Add 2px for every diopter of error (abs value).
+            const recommendation = 18 + (Math.abs(power) * 2);
+            settings.fontSize = Math.min(Math.max(Math.round(recommendation), 14), 40); // clamp 14-40
+            settings.lineHeight = power !== 0 ? 2.0 : 1.8; // increase spacing if sight is poor
+            
+            updateReaderSliders();
+            showToast(`Applied typography for Diopter ${power}. Font size: ${settings.fontSize}px`, 'success');
+        }
+
+        function saveSettings() {
+            settings.theme = document.getElementById('set-theme').value;
+            settings.eyePower = document.getElementById('set-eye-power').value;
+            localStorage.setItem('gbooks_settings', JSON.stringify(settings));
+            closeSettings();
+            showToast('Settings Saved', 'success');
+        }
+        
+        function clearLibrary() {
+            showConfirm("Clear Library", "Erase all books and reset data?", "Clear Data", () => {
+                books = [];
+                saveLibrary();
+                renderLibrary();
+                showToast("Library cleared", "success");
+            });
+        }
+
+        async function backupLibrary() {
+            if(books.length === 0) {
+                showToast("ব্যাকআপ করার মতো কোনো বই নেই!", "error");
+                return;
+            }
+            showToast("ব্যাকআপ প্রস্তুত করা হচ্ছে...", "info");
+            const dataStr = JSON.stringify(books);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const filename = `Golpobunon_Backup_${new Date().toISOString().slice(0,10)}.json`;
+            const file = new File([blob], filename, { type: 'application/json' });
+
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        title: 'গল্পবুনন ব্যাকআপ',
+                        text: 'আমার গল্পবুনন লাইব্রেরির ব্যাকআপ ফাইলটি সংরক্ষণ করুন।',
+                        files: [file]
+                    });
+                    showToast("ব্যাকআপ শেয়ার সফল হয়েছে", "success");
+                } catch (e) {
+                    if (e.name !== 'AbortError') downloadBackup(blob, filename);
+                }
+            } else {
+                downloadBackup(blob, filename);
+            }
+        }
+
+        function downloadBackup(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast("ব্যাকআপ ফাইল ডাউনলোড হয়েছে", "success");
+        }
+
+        function restoreLibrary(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const restoredBooks = JSON.parse(e.target.result);
+                    if(!Array.isArray(restoredBooks)) throw new Error("Invalid format");
+
+                    const existingCount = books.length;
+                    const existingIds = new Set(books.map(b => b.id));
+                    let addedCount = 0;
+                    
+                    restoredBooks.forEach(rb => {
+                        if(!existingIds.has(rb.id)) {
+                            books.push(rb);
+                            addedCount++;
+                        }
+                    });
+
+                    books.sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+                    saveLibrary();
+                    renderLibrary();
+                    
+                    showToast(`${addedCount} টি বই সফলভাবে রিস্টোর হয়েছে!`, "success");
+                    closeSettings();
+
+                    if(existingCount > 0 && addedCount > 0) {
+                        setTimeout(() => {
+                            showAlert("সতর্কতা", "আপনার লাইব্রেরিতে পূর্বের কিছু বই রয়েছে যা নতুন করে ব্যাকআপ করা হয়নি। আপনার ডেটা সুরক্ষিত রাখতে, রিস্টোর হওয়া বইগুলো সহ সম্পূর্ণ লাইব্রেরিটি পুনরায় ব্যাকআপ করে রাখার অনুরোধ করা হলো।");
+                        }, 500);
+                    }
+                } catch (err) {
+                    showToast("ফাইলটি সঠিক ব্যাকআপ ফাইল নয়।", "error");
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // Reset input
+        }
+
+        // --- 7. READER ENGINE ---
+        
+        function openReader(id) {
+            currentReaderBook = books.find(b => b.id === id);
+            if(!currentReaderBook) return;
+
+            // Update Metadata
+            currentReaderBook.lastRead = new Date().toISOString();
+            saveLibrary();
+            renderLibrary();
+
+            const reader = document.getElementById('view-reader');
+            const app = document.getElementById('app');
+            
+            // Populate content
+            document.getElementById('reader-title').innerText = currentReaderBook.title;
+            document.getElementById('reader-subtitle').innerText = `${currentReaderBook.authorStyle} • ${currentReaderBook.genre}`;
+            document.getElementById('reader-content-title').innerText = currentReaderBook.title;
+            document.getElementById('reader-content-meta').innerText = `${currentReaderBook.genre} • Inspired by ${currentReaderBook.authorStyle}`;
+            document.getElementById('reader-content').innerText = currentReaderBook.content;
+
+            // Apply Theme & Settings
+            applyReaderTheme(settings.theme);
+            updateReaderSliders();
+            applyFontFamily();
+
+            // Setup Reader Menu Selectors
+            document.getElementById('reader-font-select').value = getFontClass();
+            document.getElementById('toggle-shadow').checked = settings.textShadow;
+
+            // Transitions
+            app.classList.add('hidden');
+            reader.classList.remove('hidden');
+            
+            // Restore scroll position
+            const scrollArea = document.getElementById('reader-scroll-area');
+            if (currentReaderBook.progress) {
+                const targetScroll = (currentReaderBook.progress / 100) * (scrollArea.scrollHeight - scrollArea.clientHeight);
+                scrollArea.scrollTop = targetScroll;
+            } else {
+                scrollArea.scrollTop = 0;
+            }
+            
+            // Header hide logic vars
+            lastScrollTop = scrollArea.scrollTop;
+
+            // Focus Mode / Auto-Silent integration
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(e => console.log("Fullscreen optional"));
+            }
+        }
+
+        function closeReader() {
+            document.getElementById('view-reader').classList.add('hidden');
+            document.getElementById('app').classList.remove('hidden');
+            
+            // Save final progress
+            handleReaderScroll();
+            renderLibrary(); // update progress bar on card
+            
+            stopAudio();
+            stopAutoScroll();
+            document.getElementById('reader-menu').classList.add('hidden');
+            
+            if (document.exitFullscreen && document.fullscreenElement) {
+                document.exitFullscreen().catch(e => {});
+            }
+            currentReaderBook = null;
+        }
+
+        // Reader Scroll & Progress Logic
+        function handleReaderScroll() {
+            if(!currentReaderBook) return;
+            const scrollArea = document.getElementById('reader-scroll-area');
+            const header = document.getElementById('reader-header');
+            const st = scrollArea.scrollTop;
+            
+            // Calculate Progress
+            const scrollHeight = scrollArea.scrollHeight - scrollArea.clientHeight;
+            const progress = scrollHeight > 0 ? (st / scrollHeight) * 100 : 0;
+            document.getElementById('reader-progress').style.width = `${progress}%`;
+            
+            // Debounce save to object
+            currentReaderBook.progress = progress;
+            
+            // Hide/Show header logic (auto-hide on scroll down)
+            if (st > lastScrollTop && st > 100) {
+                // Downscroll
+                header.classList.add('-translate-y-full');
+                document.getElementById('reader-menu').classList.add('hidden');
+            } else {
+                // Upscroll
+                header.classList.remove('-translate-y-full');
+            }
+            lastScrollTop = st;
+        }
+
+        function scrollPage(direction) {
+            const scrollArea = document.getElementById('reader-scroll-area');
+            const amount = scrollArea.clientHeight * 0.8;
+            scrollArea.scrollBy({ top: amount * direction, behavior: 'smooth' });
+        }
+
+        function handleKeyboardNav(e) {
+            if(document.getElementById('view-reader').classList.contains('hidden')) return;
+            if (e.key === 'ArrowDown' || e.key === 'PageDown') {
+                e.preventDefault();
+                scrollPage(1);
+            } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+                e.preventDefault();
+                scrollPage(-1);
+            }
+        }
+
+        // Reader Menu & Styling
+        function toggleReaderMenu() {
+            const menu = document.getElementById('reader-menu');
+            if (menu.classList.contains('hidden')) {
+                menu.classList.remove('hidden');
+                document.getElementById('reader-header').classList.remove('-translate-y-full'); // ensure header stays
+            } else {
+                menu.classList.add('hidden');
+            }
+        }
+
+        function applyReaderTheme(themeName) {
+            const reader = document.getElementById('view-reader');
+            // Remove existing themes
+            reader.classList.remove('theme-day', 'theme-noon', 'theme-dim', 'theme-night', 'theme-sepia', 'theme-eyecare');
+            reader.classList.add(themeName);
+            settings.theme = themeName;
+            localStorage.setItem('gbooks_settings', JSON.stringify(settings));
+        }
+
+        function updateReaderSliders() {
+            document.getElementById('slider-size').value = settings.fontSize;
+            document.getElementById('slider-lineheight').value = settings.lineHeight;
+            document.getElementById('slider-spacing').value = settings.letterSpacing;
+            updateReaderTypography();
+        }
+
+        function updateReaderTypography() {
+            settings.fontSize = document.getElementById('slider-size').value;
+            settings.lineHeight = document.getElementById('slider-lineheight').value;
+            settings.letterSpacing = document.getElementById('slider-spacing').value;
+            settings.textShadow = document.getElementById('toggle-shadow').checked;
+            
+            document.getElementById('disp-size').innerText = `${settings.fontSize}px`;
+            document.getElementById('disp-lineheight').innerText = settings.lineHeight;
+            document.getElementById('disp-spacing').innerText = `${settings.letterSpacing}px`;
+
+            const content = document.getElementById('reader-content');
+            content.style.fontSize = `${settings.fontSize}px`;
+            content.style.lineHeight = settings.lineHeight;
+            content.style.letterSpacing = `${settings.letterSpacing}px`;
+            content.style.textShadow = settings.textShadow ? '1px 1px 2px rgba(0,0,0,0.2)' : 'none';
+            
+            localStorage.setItem('gbooks_settings', JSON.stringify(settings));
+        }
+
+        function getFontClass() {
+            if(currentReaderBook && currentReaderBook.lang === 'bengali') {
+                return 'font-noto-bn'; // default bn
+            }
+            return 'font-merriweather'; // default en
+        }
+
+        function applyFontFamily(fontClass = null) {
+            const content = document.getElementById('reader-content');
+            const title = document.getElementById('reader-content-title');
+            
+            // clear old fonts
+            content.className = content.className.replace(/font-\w+(-\w+)?/g, '');
+            title.className = title.className.replace(/font-\w+(-\w+)?/g, '');
+            
+            const targetFont = fontClass || getFontClass();
+            
+            if (targetFont === 'font-custom') {
+                content.style.fontFamily = "'UserCustomFont', sans-serif";
+                title.style.fontFamily = "'UserCustomFont', serif";
+            } else {
+                content.style.fontFamily = ''; // clear inline style to let class take over
+                title.style.fontFamily = '';
+                content.classList.add(targetFont);
+                title.classList.add(currentReaderBook.lang === 'bengali' ? 'font-tiro' : 'font-playfair');
+            }
+        }
+
+        function changeReaderFont(fontClass) {
+            applyFontFamily(fontClass);
+        }
+
+        // Custom Font Upload Logic
+        function handleFontUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const base64Font = e.target.result;
+                const success = await saveFontToCache(base64Font);
+                if (success) {
+                    customFontBase64 = base64Font;
+                    applyCustomFontStyles(base64Font);
+                    showToast("Custom font loaded successfully!", "success");
+                    
+                    document.getElementById('reader-font-select').value = 'font-custom';
+                    changeReaderFont('font-custom');
+                } else {
+                    showToast("Failed to save font to cache.", "error");
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function applyCustomFontStyles(base64String) {
+            // Remove old style tag if exists
+            const oldStyle = document.getElementById('custom-font-style');
+            if (oldStyle) oldStyle.remove();
+
+            const style = document.createElement('style');
+            style.id = 'custom-font-style';
+            style.innerHTML = `
+                @font-face {
+                    font-family: 'UserCustomFont';
+                    src: url('${base64String}') format('truetype');
+                    font-weight: normal;
+                    font-style: normal;
+                }
+            `;
+            document.head.appendChild(style);
+
+            // Enable the option in dropdown
+            const opt = document.getElementById('opt-custom-font');
+            if(opt) {
+                opt.disabled = false;
+                opt.innerText = "Custom Uploaded Font (Ready)";
+            }
+        }
+
+        // Auto Scroll Logic
+        function toggleAutoScroll() {
+            const btn = document.getElementById('btn-autoscroll');
+            if (autoScrollInterval) {
+                stopAutoScroll();
+            } else {
+                btn.classList.add('text-indigo-500', 'bg-indigo-100/20');
+                const scrollArea = document.getElementById('reader-scroll-area');
+                // Auto hide menu
+                document.getElementById('reader-menu').classList.add('hidden');
+                document.getElementById('reader-header').classList.add('-translate-y-full');
+                
+                autoScrollInterval = setInterval(() => {
+                    scrollArea.scrollBy(0, 1);
+                    if(scrollArea.scrollTop + scrollArea.clientHeight >= scrollArea.scrollHeight - 2) {
+                        stopAutoScroll(); // stop at bottom
+                    }
+                }, 40); // Adjustable via a setting if desired.
+            }
+        }
+        function stopAutoScroll() {
+            clearInterval(autoScrollInterval);
+            autoScrollInterval = null;
+            document.getElementById('btn-autoscroll').classList.remove('text-indigo-500', 'bg-indigo-100/20');
+        }
+
+        // TTS / Audio
+        function toggleAudio() {
+            if (isSpeaking) {
+                stopAudio();
+            } else {
+                startAudio();
+            }
+        }
+
+        function startAudio() {
+            if (!currentReaderBook) return;
+            const text = currentReaderBook.content;
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); // reset
+                currentUtterance = new SpeechSynthesisUtterance(text);
+                
+                currentUtterance.lang = currentReaderBook.lang === 'bengali' ? 'bn-BD' : 'en-US';
+                currentUtterance.rate = ttsSpeed;
+                
+                currentUtterance.onend = () => stopAudio();
+                currentUtterance.onerror = () => stopAudio();
+                
+                window.speechSynthesis.speak(currentUtterance);
+                isSpeaking = true;
+                
+                document.getElementById('btn-audio').classList.add('text-indigo-500', 'animate-pulse', 'bg-indigo-100/20');
+                document.getElementById('tts-controls').classList.remove('hidden');
+                
+                showToast("Read Aloud Started", "info");
+            } else {
+                showToast("TTS not supported in this browser.", "error");
+            }
+        }
+
+        function stopAudio() {
+            if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+            isSpeaking = false;
+            document.getElementById('btn-audio').classList.remove('text-indigo-500', 'animate-pulse', 'bg-indigo-100/20');
+            document.getElementById('tts-controls').classList.add('hidden');
+        }
+        
+        function changeTTSSpeed() {
+            ttsSpeed = parseFloat(document.getElementById('slider-ttsspeed').value);
+            document.getElementById('disp-ttsspeed').innerText = `${ttsSpeed}x`;
+            if(isSpeaking) {
+                // To change speed mid-speech, unfortunately we have to restart or pause/resume might not apply rate.
+                // Best effort logic:
+                stopAudio();
+                startAudio();
+            }
+        }
+
+        // --- 8. EXPORTS ---
+        function exportToPDF(bookId) {
+            const book = books.find(b => b.id === bookId);
+            if(!book) return;
+            
+            showToast("পিডিএফ প্রস্তুত করা হচ্ছে... প্রিন্ট উইন্ডো থেকে 'Save as PDF' নির্বাচন করুন অথবা সরাসরি শেয়ার করুন।", "info");
+            
+            const printArea = document.getElementById('print-area');
+            
+            let fontFam = book.lang === 'bengali' ? '"Tiro Bangla", serif' : '"Merriweather", serif';
+            const currentFontSelect = document.getElementById('reader-font-select')?.value;
+            if (currentFontSelect === 'font-custom' && customFontBase64) {
+                fontFam = "'UserCustomFont', serif";
+            }
+
+            const paragraphs = book.content.split(/\r?\n+/).filter(p => p.trim() !== '');
+            let formattedContent = paragraphs.map(p => `<p style="margin-bottom: 20px; text-align: justify; font-size: 14pt; line-height: 1.8;">${p.trim()}</p>`).join('');
+
+            printArea.innerHTML = `
+                <div style="text-align:center; padding-bottom: 20px; page-break-after: always; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 90vh;">
+                    <img src="${book.cover}" style="max-width: 100%; max-height: 60vh; object-fit: contain; margin-bottom: 30px; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.15);">
+                    <h1 style="font-size: 32pt; margin-bottom: 15px; font-weight: bold; line-height: 1.3; font-family: ${fontFam};">${book.title}</h1>
+                    <p style="font-size: 18pt; color: #555; margin-bottom: 10px; font-family: ${fontFam};">${book.format} • ${book.genre}</p>
+                    <p style="font-size: 16pt; margin-top: 20px; font-style: italic; color: #666; font-family: ${fontFam};">Inspired by ${book.authorStyle}</p>
+                </div>
+                <div style="page-break-before: always; width: 100%; font-family: ${fontFam}; color: #000;">
+                    ${formattedContent}
+                </div>
+            `;
+            
+            // Give the browser a moment to load the cover image into the print area
+            setTimeout(() => {
+                window.print();
+                // Clear memory after print dialog opens
+                setTimeout(() => {
+                    printArea.innerHTML = '';
+                }, 1000);
+            }, 500);
+        }
+
+        async function exportToEPUB(bookId) {
+            const book = books.find(b => b.id === bookId);
+            if(!book) return;
+            
+            showToast("Generating EPUB... Please wait.", "info");
+
+            // Helper to escape XML special characters to prevent corrupted EPUBs
+            const escapeXML = (str) => {
+                if (!str) return "";
+                return str.toString().replace(/[<>&'"]/g, (c) => {
+                    switch (c) {
+                        case '<': return '&lt;';
+                        case '>': return '&gt;';
+                        case '&': return '&amp;';
+                        case '\'': return '&apos;';
+                        case '"': return '&quot;';
+                        default: return c;
+                    }
+                });
+            };
+
+            try {
+                const zip = new JSZip();
+                const safeTitle = escapeXML(book.title);
+                const safeAuthor = escapeXML(book.authorStyle);
+
+                // 1. mimetype (Must be uncompressed, defined first)
+                zip.file("mimetype", "application/epub+zip");
+
+                // 2. META-INF/container.xml
+                const containerXml = `<?xml version="1.0" encoding="UTF-8"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>`;
+                zip.folder("META-INF").file("container.xml", containerXml);
+
+                // 3. OEBPS Folder
+                const oebps = zip.folder("OEBPS");
+
+                // Content formatting
+                const paragraphs = book.content.split(/\n\n+/);
+                const contentHtml = `<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" lang="${book.lang === 'bengali' ? 'bn' : 'en'}">
+<head>
+  <title>${safeTitle}</title>
+  <style>
+    body { font-family: serif; line-height: 1.6; padding: 2%; text-align: justify; }
+    h1 { text-align: center; font-size: 2em; margin-bottom: 0.2em; page-break-before: always; }
+    h3 { text-align: center; color: #555; font-weight: normal; margin-bottom: 2em; }
+    p { margin-bottom: 1em; text-indent: 1.5em; }
+  </style>
+</head>
+<body>
+  <h1>${safeTitle}</h1>
+  <h3>Inspired by ${safeAuthor}</h3>
+  ${paragraphs.map(p => `<p>${escapeXML(p.trim())}</p>`).join('\n')}
+</body>
+</html>`;
+                oebps.file("content.xhtml", contentHtml);
+
+                // Handle Cover Image Data
+                let coverMime = "image/jpeg";
+                let coverData = null;
+                let coverExt = "jpg";
+                let hasCover = false;
+
+                try {
+                    if (book.cover.startsWith("data:image")) {
+                        const parts = book.cover.split(',');
+                        coverMime = parts[0].match(/:(.*?);/)[1];
+                        coverData = parts[1];
+                        coverExt = coverMime.includes("png") ? "png" : "jpg";
+                        oebps.file(`cover.${coverExt}`, coverData, {base64: true});
+                        hasCover = true;
+                    } else if (book.cover.startsWith("http")) {
+                        const response = await fetch(book.cover, { mode: 'cors' });
+                        const blob = await response.blob();
+                        coverMime = blob.type || "image/jpeg";
+                        coverExt = coverMime.includes("png") ? "png" : "jpg";
+                        oebps.file(`cover.${coverExt}`, blob);
+                        hasCover = true;
+                    }
+                } catch (e) {
+                    console.warn("Could not embed cover image in EPUB (Network/CORS):", e);
+                }
+
+                // content.opf
+                const contentOpf = `<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId" version="3.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>${safeTitle}</dc:title>
+    <dc:creator>${safeAuthor}</dc:creator>
+    <dc:language>${book.lang === 'bengali' ? 'bn' : 'en'}</dc:language>
+    <dc:identifier id="BookId">id-${book.id}</dc:identifier>
+    ${hasCover ? `<meta name="cover" content="cover-img" />` : ''}
+  </metadata>
+  <manifest>
+    <item id="content" href="content.xhtml" media-type="application/xhtml+xml"/>
+    <item id="toc" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
+    ${hasCover ? `<item id="cover-img" href="cover.${coverExt}" media-type="${coverMime}" properties="cover-image"/>` : ''}
+  </manifest>
+  <spine toc="toc">
+    <itemref idref="content"/>
+  </spine>
+</package>`;
+                oebps.file("content.opf", contentOpf);
+
+                // toc.ncx
+                const tocNcx = `<?xml version="1.0" encoding="UTF-8"?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1">
+  <head>
+    <meta name="dtb:uid" content="id-${book.id}"/>
+  </head>
+  <docTitle>
+    <text>${safeTitle}</text>
+  </docTitle>
+  <navMap>
+    <navPoint id="navPoint-1" playOrder="1">
+      <navLabel>
+        <text>Start Reading</text>
+      </navLabel>
+      <content src="content.xhtml"/>
+    </navPoint>
+  </navMap>
+</ncx>`;
+                oebps.file("toc.ncx", tocNcx);
+
+                // Generate ZIP as Blob
+                const blob = await zip.generateAsync({ type: "blob", mimeType: "application/epub+zip" });
+                
+                // Trigger Download
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                // Preserve Bengali characters in filename, only strip OS-invalid chars
+                const validFilename = book.title.replace(/[\\\/:*?"<>|]/g, '_');
+                a.download = `${validFilename}.epub`;
+                
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                showToast("EPUB Export Complete", "success");
+            } catch (error) {
+                console.error("EPUB Generation Error:", error);
+                showToast("EPUB Export Failed: " + error.message, "error");
+            }
+        }
+    </script>
+</body>
+</html>
